@@ -19,6 +19,26 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     result = await db.execute(select(User).filter(User.email == email))
     return result.scalars().first()
 
+# Add to backend/src/modules/users/service.py to update user profile
+# Actually what this does is it updates the user profile using kwargs
+
+async def update_user(db: AsyncSession, user_id: str, **kwargs) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        return None
+        
+    for key, value in kwargs.items():
+        setattr(user, key, value)
+        
+    await db.commit()
+    await db.refresh(user)
+    return user
+    
+async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    return result.scalars().first()
+
 async def create_new_user(db: AsyncSession, name: str, email: str, area: str, pincode: str, auth_provider: str = "email", oauth_id: Optional[str] = None) -> User:
     wkt_location = get_wkt_point_from_area(area)
     

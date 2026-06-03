@@ -10,6 +10,9 @@ from src.core.config import settings  # <-- Imports centralized settings
 from .schemas import SendOTPRequest, VerifyOTPRequest, GoogleAuthRequest, UserProfileResponse
 from . import service
 
+# Add this to make sure cookies are set for user and is protected ( new Route - /me)
+from src.core.security import get_current_user
+
 # Connect dynamically using your .env configuration string
 redis_store = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
@@ -110,6 +113,15 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
         secure=False
     )
     return {"status": "authorized", "user_id": str(user.id)}
+
+@router.get("/me")
+async def get_current_user_info(current_user = Depends(get_current_user)):
+    return {
+        "status": "success",
+        "user_id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email
+    }
 
 @router.post("/logout")
 async def term_session(response: Response, session_id: Optional[str] = Cookie(None)):

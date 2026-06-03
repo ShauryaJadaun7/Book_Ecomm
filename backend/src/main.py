@@ -10,7 +10,7 @@ from src.modules.users.models import User
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("=========================================================")
-    print(f"🚀 Initializing {settings.APP_NAME} startup hooks...")
+    print(f"Initializing {settings.APP_NAME} startup hooks...")
     async with engine.begin() as transactional_context:
         # Prerequisite structural extensions
         await transactional_context.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto;"))
@@ -19,10 +19,10 @@ async def lifespan(app: FastAPI):
         
         # Compile database tables from SQLAlchemy classes
         await transactional_context.run_sync(Base.metadata.create_all)
-        print("✅ Production table spaces successfully established.")
+        print("Production table spaces successfully established.")
     print("=========================================================")
     yield
-    print("🛑 Offloading context pools. System terminating safely...")
+    print("Offloading context pools. System terminating safely...")
     await engine.dispose()
 
 # Initialize the core FastAPI app container
@@ -34,7 +34,8 @@ app = FastAPI(
 # 1. Configure CORS Middleware (Crucial for React frontend session storage)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    # Change the default port addres to 5173 
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,3 +48,4 @@ app.include_router(auth_router)
 @app.get("/")
 async def health_check():
     return {"status": "online", "application": settings.APP_NAME}
+
