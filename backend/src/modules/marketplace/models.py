@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, ForeignKey, DateTime, text
+from sqlalchemy import Column, Float, String, Text, ForeignKey, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from src.core.database import Base
@@ -12,7 +12,7 @@ class Book(Base):
     description = Column(Text, nullable=True)
     genres = Column(ARRAY(String(100)), nullable=True)
     image_url = Column(String(500), nullable=True)  # Absolute storage system directory pointer
-    
+    price = Column(Float, nullable=False, default=0.0)  # column for peer pricing
     # Structural Ownership Links
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     owner = relationship("User", backref="books")

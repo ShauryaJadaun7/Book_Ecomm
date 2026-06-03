@@ -6,9 +6,19 @@ class Settings(BaseSettings):
     REDIS_URL: str
     APP_NAME: str = "BookMyBook Engine"
     DEBUG: bool = False
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    gemini_api_key: str
 
-    # Configuration class telling Pydantic where to look for the environment file
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # Configuration class layout
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # 🧠 Changing this from "forbid" to "ignore" stops Pydantic from crashing
+        # if extra/unmapped environment variables exist on your system.
+        extra="ignore" 
+    )
 
-# Instantiate a global settings object to import across the project
 settings = Settings()
