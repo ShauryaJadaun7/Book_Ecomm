@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { 
   Book, Camera, Map, MessageSquare, ChevronRight, Search, Clock, Zap, 
   ArrowRightLeft, IndianRupee, ShieldCheck, Leaf, Trophy, Star, Download,
-  Mail, MessageCircle, ChevronDown
+  Mail, MessageCircle, ChevronDown, Menu, X
 } from "lucide-react";
 
 // --- QUOTES ARRAY (15 Quotes) ---
@@ -30,6 +30,7 @@ export default function LandingPage() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [bountyStep, setBountyStep] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Lazy load simulation
   useEffect(() => {
@@ -98,14 +99,40 @@ export default function LandingPage() {
         </div>
         
         <div className="flex items-center gap-4">
-          <Link to="/login" className="bg-slate-100 text-secondary border-2 border-slate-300 font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 hover:bg-slate-200 transition-transform active-brutal shadow-[2px_2px_0_0_#cbd5e1] rounded-sm hidden sm:block">
+          <Link to="/login" className="bg-slate-100 text-secondary border-2 border-slate-300 font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 hover:bg-slate-200 transition-transform active-brutal shadow-[2px_2px_0_0_#cbd5e1] rounded-sm hidden lg:block">
             Login
           </Link>
-          <Link to="/signup" className="bg-primary text-secondary border-2 border-secondary font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 hover:bg-yellow-400 transition-transform active-brutal shadow-[2px_2px_0_0_#0f172a] rounded-sm">
+          <Link to="/signup" className="bg-primary text-secondary border-2 border-secondary font-mono text-xs font-bold uppercase tracking-wider px-4 py-2 hover:bg-yellow-400 transition-transform active-brutal shadow-[2px_2px_0_0_#0f172a] rounded-sm hidden lg:block">
             Sign Up
           </Link>
+          <button 
+            className="lg:hidden p-2 text-secondary hover:bg-slate-100 rounded-sm transition-colors"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </nav>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden sticky top-[74px] z-40 bg-white border-b-2 border-slate-900 shadow-brutal animate-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-col font-mono text-sm font-bold uppercase tracking-wider text-slate-600 p-4 divide-y divide-slate-100">
+            <a href="#explore" onClick={() => setIsMobileMenuOpen(false)} className="py-4 hover:text-secondary transition-colors">Explore</a>
+            <a href="#bounties" onClick={() => setIsMobileMenuOpen(false)} className="py-4 hover:text-primary transition-colors flex items-center gap-2"><Zap className="w-4 h-4 text-primary" /> Bounty Board</a>
+            <a href="#leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="py-4 hover:text-secondary transition-colors">Leaderboard</a>
+            <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="py-4 hover:text-secondary transition-colors">FAQ</a>
+            <div className="pt-6 pb-2 flex flex-col gap-4">
+              <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="bg-slate-100 text-secondary border-2 border-slate-300 font-mono text-sm font-bold uppercase tracking-wider px-4 py-3 text-center hover:bg-slate-200 transition-transform active-brutal shadow-[2px_2px_0_0_#cbd5e1] rounded-sm">
+                Login
+              </Link>
+              <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="bg-primary text-secondary border-2 border-secondary font-mono text-sm font-bold uppercase tracking-wider px-4 py-3 text-center hover:bg-yellow-400 transition-transform active-brutal shadow-[2px_2px_0_0_#0f172a] rounded-sm">
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 flex flex-col">
         

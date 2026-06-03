@@ -25,10 +25,11 @@ async def send_otp(payload: SendOTPRequest):
     # Cache parameters safely inside transactional memory structures (5-minute TTL)
     redis_store.setex(f"otp:{payload.email}", 300, generated_otp)
     
-    # Cache onboarding demographic parameters so they map cleanly upon verification pass
-    redis_store.setex(f"signup_cache:{payload.email}:name", 300, payload.name)
-    redis_store.setex(f"signup_cache:{payload.email}:area", 300, payload.area)
-    redis_store.setex(f"signup_cache:{payload.email}:pincode", 300, payload.pincode)
+    # Cache onboarding demographic parameters only if provided (Signup flow)
+    if payload.name:
+        redis_store.setex(f"signup_cache:{payload.email}:name", 300, payload.name)
+        redis_store.setex(f"signup_cache:{payload.email}:area", 300, payload.area)
+        redis_store.setex(f"signup_cache:{payload.email}:pincode", 300, payload.pincode)
     
     # Hand off execution thread over to Celery worker cluster immediately
     from worker.tasks.auth_tasks import send_otp_email_task
@@ -79,10 +80,13 @@ async def verify_otp(payload: VerifyOTPRequest, response: Response, db: AsyncSes
 
 @router.post("/google")
 async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    verification_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={payload.token}"
+    verification_url = "https://www.googleapis.com/oauth2/v3/userinfo"
     
     async with httpx.AsyncClient() as async_client:
-        google_stream = await async_client.get(verification_url)
+        google_stream = await async_client.get(
+            verification_url, 
+            headers={"Authorization": f"Bearer {payload.token}"}
+        )
         
     if google_stream.status_code != 200:
         raise HTTPException(status_code=401, detail="Google authentication signature handshake dropped validation.")
@@ -95,10 +99,20 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
     user = await service.get_user_by_email(db, extracted_email)
     
     if not user:
-        # Fixed the NameError bug here by changing google_id to google_unique_id
+        # Auto-fill missing data so they can enter the dashboard immediately. 
+        # (Profile completion can be forced later).
+        fallback_area = payload.area if payload.area else "Not Provided"
+        fallback_pincode = payload.pincode if payload.pincode else "000000"
+        
+        # Create brand new user
         user = await service.create_new_user(
-            db, extracted_name, extracted_email, payload.area, payload.pincode, 
-            auth_provider="google", oauth_id=google_unique_id
+            db, 
+            name=extracted_name, 
+            email=extracted_email, 
+            area=fallback_area, 
+            pincode=fallback_pincode,
+            auth_provider="google",
+            oauth_id=google_unique_id
         )
         
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"

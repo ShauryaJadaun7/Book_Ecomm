@@ -3,9 +3,9 @@ from pydantic import BaseModel, EmailStr
 
 class SendOTPRequest(BaseModel):
     email: EmailStr
-    name: str
-    area: str
-    pincode: str
+    name: Optional[str] = None
+    area: Optional[str] = None
+    pincode: Optional[str] = None
 
 class VerifyOTPRequest(BaseModel):
     email: EmailStr
@@ -13,8 +13,8 @@ class VerifyOTPRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     token: str
-    area: str
-    pincode: str
+    area: Optional[str] = None
+    pincode: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
     id: str
