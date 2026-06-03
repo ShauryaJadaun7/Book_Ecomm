@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Chassis / Backgrounds */
+    --background: 210 40% 98%; /* #f8fafc */
+    --foreground: 0 0% 0%; /* Pure Black */
+    
+    /* Primary / Secondary */
+    --primary: 43 96% 56%; /* #fbbf24 Industrial Yellow */
+    --primary-foreground: 0 0% 0%; /* Black text on yellow */
+    --secondary: 222 47% 11%; /* #0f172a Deep Slate Blue */
+    --secondary-foreground: 0 0% 100%; /* White text on dark blue */
+    
+    /* Cards and UI Elements */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    
+    /* Accents & Muted */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    
+    /* System */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    --radius: 0.25rem; /* Tighter borders for industrial look */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight text-secondary;
+  }
+}
+
+@layer utilities {
+  .shadow-brutal {
+    box-shadow: 4px 4px 0px 0px #cbd5e1;
+  }
+  .shadow-brutal-dark {
+    box-shadow: 4px 4px 0px 0px #020617;
+  }
+  .active-brutal {
+    @apply active:translate-y-[2px] active:translate-x-[2px] active:shadow-inner;
+  }
+}
