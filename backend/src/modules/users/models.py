@@ -1,4 +1,3 @@
-# 1. Add 'Text' (Capitalized) to your imports from sqlalchemy
 from sqlalchemy import Column, String, DateTime, Text, text  
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from geoalchemy2 import Geometry
@@ -7,18 +6,23 @@ from src.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
+    # Core Identifiers
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     
-    auth_provider = Column(String(50), default="email")  
+    # 🔐 Authentication Credentials (GitHub-Style Update)
+    password_hash = Column(String(255), nullable=True) # Stored via safe bcrypt hashes
+    auth_provider = Column(String(50), default="email")  # "email" or "google"
     oauth_id = Column(String(255), unique=True, nullable=True, index=True)
     
-    area = Column(String(255), nullable=False)
-    pincode = Column(String(20), nullable=False)
-    #location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
+    # 📍 Profile Demographics (Made nullable=True to be gathered post-login)
+    mobile_number = Column(String(20), nullable=True)
+    area = Column(String(255), nullable=True)
+    pincode = Column(String(20), nullable=True)
+    location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=True) # Un-commented and safe for PostGIS lookups
     
-    # 2. Fix this line to use capital 'Text'
+    # Metadata and Preferences
     bio = Column(Text, nullable=True)  
     favorite_genres = Column(ARRAY(String(100)), nullable=True)
     

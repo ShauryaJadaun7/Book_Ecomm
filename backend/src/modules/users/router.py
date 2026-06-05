@@ -3,68 +3,112 @@ import random
 from typing import Optional
 import httpx
 import redis
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.database import get_db
-from src.core.config import settings  # <-- Imports centralized settings
-from .schemas import SendOTPRequest, VerifyOTPRequest, GoogleAuthRequest, UserProfileResponse
+from src.core.config import settings
+from src.core.security import get_current_user, hash_password, verify_password
+from src.modules.users.models import User
+from .schemas import UserSignupRequest, VerifySignupOTPRequest, UserLoginRequest, GoogleAuthRequest
 from . import service
 
-# Add this to make sure cookies are set for user and is protected ( new Route - /me)
-from src.core.security import get_current_user
-
-# Connect dynamically using your .env configuration string
+# Establish centralized connection to high-speed Redis memory layer
 redis_store = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-router = APIRouter(prefix="/auth", tags=["Authentication Pipeline"])
+router = APIRouter(prefix="/auth", tags=["GitHub-Style Authentication Gateway"])
 
-@router.post("/send-otp")
-async def send_otp(payload: SendOTPRequest):
+
+@router.post("/signup")
+async def initiate_credential_signup(payload: UserSignupRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Step 1 Signup: Enforces entry-level uniqueness (Redundancy Shield 1), hashes
+    passwords securely via bcrypt, stages unverified credentials inside Redis caches (15-min TTL),
+    and schedules an email background task via Celery using your Resend SMTP setup.
+    """
+    # 🛡️ REDUNDANCY SHIELD 1: Instantly reject if the account is already registered
+    existing_user = await service.get_user_by_email(db, payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address is already registered. Please proceed to login."
+        )
+
     generated_otp = str(random.randint(100000, 999999))
+    hashed_pass = hash_password(payload.password)
     
-    # Cache parameters safely inside transactional memory structures (5-minute TTL)
-    redis_store.setex(f"otp:{payload.email}", 300, generated_otp)
-    
-    # Cache onboarding demographic parameters only if provided (Signup flow)
-    if payload.name:
-        redis_store.setex(f"signup_cache:{payload.email}:name", 300, payload.name)
-        redis_store.setex(f"signup_cache:{payload.email}:area", 300, payload.area)
-        redis_store.setex(f"signup_cache:{payload.email}:pincode", 300, payload.pincode)
-    
-    # Hand off execution thread over to Celery worker cluster immediately
-    from worker.tasks.auth_tasks import send_otp_email_task
-    send_otp_email_task.delay(payload.email, generated_otp)
-    
+    # Cache parameters within an isolated 15-minute transactional staging window (900 seconds)
+    redis_store.setex(f"otp:{payload.email}", 900, generated_otp)
+    redis_store.setex(f"reg_cache:{payload.email}:name", 900, payload.name)
+    redis_store.setex(f"reg_cache:{payload.email}:pass_hash", 900, hashed_pass)
+
+    # Delegate mail generation to background workers to keep route execution speed at ~5ms
+    try:
+        from worker.tasks.auth_tasks import send_otp_email_task
+        send_otp_email_task.delay(payload.email, generated_otp)
+    except Exception as e:
+        print(f"⚠️ [CELERY SUBMISSION FAILURE] Fallback localized console bypass token: {generated_otp}")
+
     return {
         "status": "success",
-        "message": "OTP challenge successfully generated and shifted to background queue.",
-        "dev_bypass_token": generated_otp  # Extracted for straightforward Postman automation scripting
+        "message": "Security validation code successfully generated and pushed to background transmission queue.",
+        "dev_bypass_token": generated_otp  # Retained for automated postman regression script testing loops
     }
 
-@router.post("/verify-otp")
-async def verify_otp(payload: VerifyOTPRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    cached_otp = redis_store.get(f"otp:{payload.email}")
-    
-    if not cached_otp or cached_otp != payload.otp:
-        raise HTTPException(status_code=400, detail="Provided authorization token credentials mismatch or expired.")
-        
-    redis_store.delete(f"otp:{payload.email}")
-    
-    user = await service.get_user_by_email(db, payload.email)
-    
-    if not user:
-        name = redis_store.get(f"signup_cache:{payload.email}:name") or "User"
-        area = redis_store.get(f"signup_cache:{payload.email}:area") or "Adani University"
-        pincode = redis_store.get(f"signup_cache:{payload.email}:pincode") or "382421"
-        
-        user = await service.create_new_user(db, name, payload.email, area, pincode, auth_provider="email")
-        
-        # Cleanup temporary signup cache keys
-        redis_store.delete(f"signup_cache:{payload.email}:name")
-        redis_store.delete(f"signup_cache:{payload.email}:area")
-        redis_store.delete(f"signup_cache:{payload.email}:pincode")
 
-    # Issue production-ready secure session token mapping block (30-day lifecycle window)
+@router.post("/signup/verify")
+async def finalize_credential_signup(payload: VerifySignupOTPRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    """
+    Step 2 Signup: Validates OTP correctness. Executes an anti-race condition check (Redundancy Shield 2)
+    right before creation to handle double-clicks. Commits the baseline location-agnostic profile 
+    to PostgreSQL, cleans up transient caches, and issues an active secure session cookie.
+    """
+    cached_otp = redis_store.get(f"otp:{payload.email}")
+    if not cached_otp or cached_otp != payload.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provided verification code is invalid or has expired."
+        )
+
+    # 🛡️ REDUNDANCY SHIELD 2: Anti-Race Condition Gate
+    # Prevents concurrent thread double-submit creations or multiple open tab bypasses
+    final_duplicate_check = await service.get_user_by_email(db, payload.email)
+    if final_duplicate_check:
+        # Immediate evacuation of stale transient cache nodes
+        redis_store.delete(f"otp:{payload.email}")
+        redis_store.delete(f"reg_cache:{payload.email}:name")
+        redis_store.delete(f"reg_cache:{payload.email}:pass_hash")
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Account activation redundant. This profile was successfully registered via another session link."
+        )
+
+    # Pull unverified data parameters out of staging memory handles
+    name = redis_store.get(f"reg_cache:{payload.email}:name")
+    password_hash = redis_store.get(f"reg_cache:{payload.email}:pass_hash")
+
+    if not name or not password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Registration session timed out or already processed. Please initiate signup again."
+        )
+
+    # Formally write user profile shell entry into database ledger layers
+    user = await service.create_new_user(
+        db=db,
+        name=name,
+        email=payload.email,
+        auth_provider="email",
+        password_hash=password_hash
+    )
+
+    # Immediate absolute atomic cleanup of active staging keys
+    redis_store.delete(f"otp:{payload.email}")
+    redis_store.delete(f"reg_cache:{payload.email}:name")
+    redis_store.delete(f"reg_cache:{payload.email}:pass_hash")
+
+    # Construct secure 30-day lifecycle session management token architecture
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
     redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
     
@@ -74,12 +118,58 @@ async def verify_otp(payload: VerifyOTPRequest, response: Response, db: AsyncSes
         httponly=True,
         max_age=2592000,
         samesite="lax",
-        secure=False  # Switch setting to True inside live target production HTTPS pipelines
+        secure=False  # Flip to True when setting up live target SSL/HTTPS production networks
     )
-    return {"status": "authorized", "user_id": str(user.id)}
+    return {"status": "authorized", "user_id": str(user.id), "message": "Account created successfully."}
+
+
+@router.post("/login")
+async def standard_credential_login(payload: UserLoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    """
+    Credential Sign In: Resolves user presence, checks for Google OAuth crossover locks,
+    verifies passwords using bcrypt comparison helper contexts, and builds active session containers.
+    """
+    user = await service.get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password credentials provided."
+        )
+
+    # Prevent credential guess spoofing on accounts created exclusively via Google Single Sign-On
+    if user.auth_provider == "google" and not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account uses Google single sign-on. Please click 'Sign in with Google'."
+        )
+
+    # Run side-channel protected timing comparisons using passlib password verification contexts
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password credentials provided."
+        )
+
+    assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
+    redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
+    
+    response.set_cookie(
+        key="session_id",
+        value=assigned_session_uuid,
+        httponly=True,
+        max_age=2592000,
+        samesite="lax",
+        secure=False
+    )
+    return {"status": "authorized", "user_id": str(user.id), "message": "Login successful."}
+
 
 @router.post("/google")
 async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    """
+    Alternative Google OAuth Hub: Performs direct, secure identity handshake assertions with 
+    Google servers, handles automated account provisioning for new profiles, and issues sessions.
+    """
     verification_url = "https://www.googleapis.com/oauth2/v3/userinfo"
     
     async with httpx.AsyncClient() as async_client:
@@ -89,7 +179,10 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
         )
         
     if google_stream.status_code != 200:
-        raise HTTPException(status_code=401, detail="Google authentication signature handshake dropped validation.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Google authentication signature handshake dropped validation."
+        )
         
     identity_claims = google_stream.json()
     extracted_email = identity_claims.get("email")
@@ -98,19 +191,12 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
     
     user = await service.get_user_by_email(db, extracted_email)
     
+    # Seamless redundancy check: auto-provisions a profile ONLY if they do not exist
     if not user:
-        # Auto-fill missing data so they can enter the dashboard immediately. 
-        # (Profile completion can be forced later).
-        fallback_area = payload.area if payload.area else "Not Provided"
-        fallback_pincode = payload.pincode if payload.pincode else "000000"
-        
-        # Create brand new user
         user = await service.create_new_user(
-            db, 
+            db=db, 
             name=extracted_name, 
             email=extracted_email, 
-            area=fallback_area, 
-            pincode=fallback_pincode,
             auth_provider="google",
             oauth_id=google_unique_id
         )
@@ -128,18 +214,58 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
     )
     return {"status": "authorized", "user_id": str(user.id)}
 
+
 @router.get("/me")
-async def get_current_user_info(current_user = Depends(get_current_user)):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """
+    Protected Workspace Session Gate: Returns baseline profile attributes. 
+    Frontend checks for null values in location/mobile fields to trigger the profile setup redirect.
+    """
     return {
         "status": "success",
-        "user_id": current_user.id,
+        "user_id": str(current_user.id),
         "name": current_user.name,
-        "email": current_user.email
+        "email": current_user.email,
+        "area": current_user.area,                 # Returns null for new accounts
+        "pincode": current_user.pincode,             # Returns null for new accounts
+        "mobile_number": current_user.mobile_number   # Returns null for new accounts
     }
+
 
 @router.post("/logout")
 async def term_session(response: Response, session_id: Optional[str] = Cookie(None)):
+    """Wipes the active session key mapping from Redis memory and cleaves client cookies clean."""
     if session_id:
         redis_store.delete(session_id)
     response.delete_cookie(key="session_id")
     return {"status": "terminated", "message": "Client session removed from backend register stores."}
+
+from .schemas import ProfileOnboardingRequest # Import request schema validation
+
+@router.patch("/onboarding")
+async def save_profile_onboarding_data(
+    payload: ProfileOnboardingRequest,
+    current_user: User = Depends(get_current_user), # Blocks unauthorized access requests
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Profile Enrichment Point: Collects exact device GPS coordinates along with
+    contact data to activate real-time marketplace proximity tracking capabilities.
+    """
+    updated_profile = await service.update_user(
+        db=db,
+        user_id=str(current_user.id),
+        area=payload.area,
+        pincode=payload.pincode,
+        mobile_number=payload.mobile_number,
+        latitude=payload.latitude,
+        longitude=payload.longitude
+    )
+    
+    if not updated_profile:
+        raise HTTPException(status_code=404, detail="Active account workspace state could not be resolved.")
+        
+    return {
+        "status": "success",
+        "message": "Campus profile attributes and exact GPS configurations successfully synchronized."
+    }

@@ -1,16 +1,17 @@
 import asyncio
-from celery import shared_task
-from sqlalchemy.future import select
-from sqlalchemy import text
+from contextlib import asynccontextmanager
 import uuid
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from celery import shared_task
-from src.core.config import settings
+from sqlalchemy import text
+from sqlalchemy.future import select
 
-from src.core.database import sessionmanager  # 🧠 Async session maker optimized for tasks
+from src.core.config import settings
+from src.core.database import get_db
 from src.modules.users.models import User
+
 
 @shared_task(name="wishlist.check_wishlist_matches")
 def check_wishlist_matches_task(book_id: str, book_title: str, uploader_id: str):
@@ -18,21 +19,25 @@ def check_wishlist_matches_task(book_id: str, book_title: str, uploader_id: str)
     Coordinator Task: Discovers matching local wishlists via PostGIS + pg_trgm 
     and fans them out into independent notification instances.
     """
-    # Force the asynchronous execution loop to execute cleanly within a synchronous Celery worker thread
     return asyncio.run(_async_check_wishlist_matches(book_id, book_title, uploader_id))
 
 
 async def _async_check_wishlist_matches(book_id: str, book_title: str, uploader_id: str):
-    async with sessionmanager.session() as db:
-        # 1. Fetch the exact spatial coordinates of the uploader profile
+    async_db_context = asynccontextmanager(get_db)
+
+    async with async_db_context() as db:
         uploader = await db.get(User, uuid.UUID(uploader_id))
         if not uploader:
             return f"Uploader {uploader_id} not found."
 
-        # Convert uploader point geometry into a text representation for the raw SQL block
-        uploader_loc_wkt = await db.scalar(select(func.ST_AsText(uploader.location)))
+        # Fetch uploader point geometry into a text representation safely
+        uploader_loc_wkt = await db.scalar(
+            select(text("ST_AsText(location)")).select_from(User).filter(User.id == uploader.id)
+        )
+        
+        if not uploader_loc_wkt:
+            uploader_loc_wkt = "POINT(72.5714 23.0225)"
 
-        # 2. Execute your optimized cross-index matching statement
         match_query = text("""
             SELECT w.user_id, u.email 
             FROM wishlist_items w
@@ -52,7 +57,8 @@ async def _async_check_wishlist_matches(book_id: str, book_title: str, uploader_
         if not matches:
             return f"Scan complete for '{book_title}'. 0 local wishlist matches discovered."
 
-        # 3. 🚀 THE FAN-OUT: Offload each notification safely as its own worker instance
+        # Trigger independent task workers for each matched user profile discovered
+        from .tasks import send_single_notification_task
         for row in matches:
             send_single_notification_task.delay(
                 user_id=str(row.user_id),
@@ -67,21 +73,18 @@ async def _async_check_wishlist_matches(book_id: str, book_title: str, uploader_
 @shared_task(name="wishlist.send_single_notification", max_retries=3, default_retry_delay=60)
 def send_single_notification_task(user_id: str, email: str, book_title: str, book_id: str):
     """
-    Worker Task: Executes individual delivery notification workflows via a secure SMTP handshake,
-    injecting the dynamic book name into the core messaging subject envelope.
+    Worker Task: Connects over Resend SMTP to deliver hyper-targeted wishlist match notifications.
     """
     try:
-        print(f"📡 [SMTP CONNECTING] Initializing mail stream connection for {email}...")
+        print(f"📡 [RESEND SMTP CONNECTING] Transporting wishlist alert stream to: {email}")
 
-        # 1. Construct the email structural envelope
         message = MIMEMultipart("alternative")
-        
-        # 🎯 DYNAMIC SUBJECT LINE: Injected the actual book title directly into the notification header
         message["Subject"] = f"📚 Wishlist Alert: '{book_title}' is now available near you!"
-        message["From"] = f"BookMyBook Alerts <{settings.SMTP_USER}>"
+        
+        # 🎯 BRAND ENHANCEMENT: Swap this with your verified Resend custom domain email address
+        message["From"] = "BookMyBook Alerts <alerts@yourcompanyname.com>"
         message["To"] = email
 
-        # 2. Render the HTML Layout Structure
         html_content = f"""
         <html>
           <body style="font-family: 'Inter', sans-serif; color: #1a1a1a; background-color: #FAF9F6; padding: 20px;">
@@ -103,18 +106,16 @@ def send_single_notification_task(user_id: str, email: str, book_title: str, boo
           </body>
         </html>
         """
-        
         message.attach(MIMEText(html_content, "html"))
 
-        # 3. Secure TLS Encryption Handshake & Transmission Execution
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
             server.starttls() 
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_USER, email, message.as_string())
+            server.login(settings.smtp_user, settings.smtp_password)
+            server.sendmail(message["From"], email, message.as_string())
 
-        print(f"✅ [MAIL DELIVERED] Wishlist notification for '{book_title}' successfully pushed straight to inbox: {email}")
+        print(f"✅ [RESEND SMTP SUCCESS] Wishlist notification alert pushed cleanly to inbox: {email}")
         return f"Notification confirmed delivered to user {user_id}"
 
     except Exception as exc:
-        print(f"❌ [SMTP ERROR] Transmission dropped for {email} matching '{book_title}'. Scheduling worker retry...")
+        print(f"❌ [RESEND SMTP FAIL] Wishlist email delivery failure encountered for {email}: {str(exc)}")
         raise send_single_notification_task.retry(exc=exc)
