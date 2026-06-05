@@ -67,14 +67,20 @@ async def upload_new_book(
     if not user_id:
         raise HTTPException(status_code=401, detail="Session expired or invalid.")
 
-    return await service.create_new_book_listing(
-        db=db,
-        user_id=user_id,
-        title=title,
-        author=author,
-        description=description,
-        genres=genres,
-        price=price,
-        owner_note=owner_note,
-        image=image
-    )
+    import traceback
+    try:
+        return await service.create_new_book_listing(
+            db=db,
+            user_id=user_id,
+            title=title,
+            author=author,
+            description=description,
+            genres=genres,
+            price=price,
+            owner_note=owner_note,
+            image=image
+        )
+    except Exception as e:
+        error_details = traceback.format_exc()
+        print("INTERNAL CRASH:", error_details)
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}\n{error_details}")

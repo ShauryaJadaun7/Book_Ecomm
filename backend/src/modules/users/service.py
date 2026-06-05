@@ -49,7 +49,7 @@ async def create_new_user(db: AsyncSession, name: str, email: str, area: str, pi
         pincode=pincode,
         auth_provider=auth_provider,
         oauth_id=oauth_id,
-        #location=wkt_location
+        location=wkt_location
     )
     db.add(user)
     await db.flush()

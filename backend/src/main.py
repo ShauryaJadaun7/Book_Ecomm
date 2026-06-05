@@ -14,6 +14,9 @@ from src.modules.wishlist.router import router as wishlist_router  # <-- Add imp
 from src.modules.users.models import User 
 from src.modules.marketplace.models import Book  # <-- Add import
 
+# Related to the issue of loading books cover in the frontend
+from fastapi.staticfiles import StaticFiles
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("=========================================================")
@@ -41,10 +44,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Register endpoints to the gateway application instance
 app.include_router(auth_router)
 app.include_router(books_router)
 app.include_router(wishlist_router) # <-- Mount books router
+
+# Mount the static directory to serve uploaded images
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def health_check():

@@ -13,6 +13,7 @@ class Book(Base):
     genres = Column(ARRAY(String(100)), nullable=True)
     image_url = Column(String(500), nullable=True)  # Absolute storage system directory pointer
     price = Column(Float, nullable=False, default=0.0)  # column for peer pricing
+    owner_note = Column(String(500), nullable=True)
     # Structural Ownership Links
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     owner = relationship("User", backref="books")

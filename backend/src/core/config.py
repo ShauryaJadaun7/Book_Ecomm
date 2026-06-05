@@ -8,11 +8,11 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
-    smtp_host: str
-    smtp_port: int
-    smtp_user: str
-    smtp_password: str
-    gemini_api_key: str
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_USER: str
+    SMTP_PASSWORD: str
+    GEMINI_API_KEY: str
 
     # Configuration class layout
     model_config = SettingsConfigDict(

@@ -1,18 +1,19 @@
 import asyncio
-from celery import shared_task
+# from celery import shared_taskd
 from sqlalchemy.future import select
 from sqlalchemy import text
 import uuid
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from celery import shared_task
+from worker.celery_app import celery_worker
 from src.core.config import settings
 
-from src.core.database import sessionmanager  # 🧠 Async session maker optimized for tasks
+from src.core.database import AsyncSessionLocal  # 🧠 Async session maker optimized for tasks
 from src.modules.users.models import User
+from sqlalchemy import func
 
-@shared_task(name="wishlist.check_wishlist_matches")
+@celery_worker.task(name="wishlist.check_wishlist_matches")
 def check_wishlist_matches_task(book_id: str, book_title: str, uploader_id: str):
     """
     Coordinator Task: Discovers matching local wishlists via PostGIS + pg_trgm 
@@ -23,7 +24,7 @@ def check_wishlist_matches_task(book_id: str, book_title: str, uploader_id: str)
 
 
 async def _async_check_wishlist_matches(book_id: str, book_title: str, uploader_id: str):
-    async with sessionmanager.session() as db:
+    async with AsyncSessionLocal() as db:
         # 1. Fetch the exact spatial coordinates of the uploader profile
         uploader = await db.get(User, uuid.UUID(uploader_id))
         if not uploader:
@@ -64,7 +65,7 @@ async def _async_check_wishlist_matches(book_id: str, book_title: str, uploader_
         return f"Scan complete. Successfully dispatched {len(matches)} isolated alert sub-tasks."
 
 
-@shared_task(name="wishlist.send_single_notification", max_retries=3, default_retry_delay=60)
+@celery_worker.task(name="wishlist.send_single_notification", max_retries=3, default_retry_delay=60)
 def send_single_notification_task(user_id: str, email: str, book_title: str, book_id: str):
     """
     Worker Task: Executes individual delivery notification workflows via a secure SMTP handshake,

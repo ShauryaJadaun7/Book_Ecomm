@@ -16,7 +16,7 @@ class User(Base):
     
     area = Column(String(255), nullable=False)
     pincode = Column(String(20), nullable=False)
-    #location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
+    location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
     
     # 2. Fix this line to use capital 'Text'
     bio = Column(Text, nullable=True)  

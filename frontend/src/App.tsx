@@ -1,7 +1,15 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
-import DashboardPage from "./pages/DashboardPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./components/DashboardLayout";
+
+// Dashboard Tabs
+import HomeTab from "./pages/dashboard/HomeTab";
+import MyBooksTab from "./pages/dashboard/MyBooksTab";
+import WishlistTab from "./pages/dashboard/WishlistTab";
+import ProfileTab from "./pages/dashboard/ProfileTab";
+import ScanTab from "./pages/dashboard/ScanTab";
 
 function App() {
   return (
@@ -10,7 +18,20 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/signup" element={<AuthPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        
+        {/* Protected Dashboard Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<HomeTab />} />
+            <Route path="my-books" element={<MyBooksTab />} />
+            <Route path="wishlist" element={<WishlistTab />} />
+            <Route path="profile" element={<ProfileTab />} />
+            <Route path="scan" element={<ScanTab />} />
+          </Route>
+        </Route>
+
+        {/* Catch-all redirect to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

@@ -21,7 +21,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 if os.getenv("GEMINI_API_KEY"):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 else:
-    print("⚠️ [AI WARNING] GEMINI_API_KEY is not defined in your environment configs.")
+    print("[!] [AI WARNING] GEMINI_API_KEY is not defined or is a dummy value in your environment configs.")
 
 # 🚨 Structured Output Definition for Gemini Flash
 class AIBookExtractionSchema(BaseModel):
@@ -47,7 +47,7 @@ async def parse_book_photo_with_vision_ai(image_file: UploadFile) -> dict:
             "data": image_bytes
         }
 
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
         prompt = (
             "You are an expert OCR book cataloging assistant. Look closely at this book cover/spine photo. "
