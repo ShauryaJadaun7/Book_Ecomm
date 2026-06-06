@@ -2,7 +2,13 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from worker.celery_app import celery_worker
-from src.core.config import settings  # Access centralized settings matrix
+
+# ---------------- New IMPORTS for EMAIL FEATURES ----------------
+from src.core.config import settings
+import asyncio
+from src.core.database import AsyncSessionLocal
+from src.modules.users.models import User
+from sqlalchemy import select
 
 @celery_worker.task(name="tasks.send_otp_email", max_retries=3, default_retry_delay=10)
 def send_otp_email_task(email: str, otp: str) -> str:
@@ -57,3 +63,104 @@ def send_otp_email_task(email: str, otp: str) -> str:
     except Exception as exc:
         print(f"❌ [RESEND SMTP FAIL] Transmission exception generated for {email}: {str(exc)}")
         raise send_otp_email_task.retry(exc=exc)
+
+# MERGE NOTE:
+# 2 New Feature jesa add kiya he 
+#   1) Welcoming email
+#   2) Profile reminders
+# Same hi tha code to mene bas copy past kardiya 😂 
+# Tu ek baar dekh lena ,  koi problen na ho , aur kuch change karna hoto dekh lena
+# Aur delay timer rakhe hue he testing ke liye 60 sec ka baad me change kar lege jo rakhne ho vo practically 
+
+@celery_worker.task(name="tasks.send_welcome_email", max_retries=3, default_retry_delay=10)
+def send_welcome_email_task(email: str, name: str) -> str:
+    """
+    Sends an aesthetic welcome email to the user once their profile is completed.
+    """
+    try:
+        print(f"📡 [RESEND SMTP CONNECTING] Sending Welcome Email to: {email}")
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "Welcome to the BookMyBook Community! 📚"
+        message["From"] = "LocalShelf Onboarding <onboarding@resend.dev>"
+        message["To"] = email
+
+        html_content = f"""
+        <html>
+          <body style="font-family: 'Inter', sans-serif; background-color: #FAF9F6; color: #1a1a1a; padding: 30px;">
+            <div style="max-width: 500px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E6DFD3;">
+              <h2 style="color: #2C4A3E; margin-top: 0; font-size: 24px; text-align: center;">Welcome, {name}!</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: #4A4A4A; text-align: center;">
+                Your campus profile is now complete. You are officially ready to start scanning, uploading, and trading books with students in your immediate area!
+              </p>
+              <div style="text-align: center; margin: 25px 0;">
+                <a href="http://localhost:5173/dashboard" style="background-color: #2C4A3E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Go to Dashboard</a>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+        message.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(settings.smtp_user, settings.smtp_password)
+            server.sendmail(message["From"], email, message.as_string())
+
+        print(f"✅ [RESEND SMTP SUCCESS] Welcome email delivered to {email}")
+        return "Welcome email sent successfully."
+
+    except Exception as exc:
+        raise send_welcome_email_task.retry(exc=exc)
+
+
+@celery_worker.task(name="tasks.check_profile_and_remind", max_retries=3, default_retry_delay=10)
+def check_profile_and_remind_task(user_id: str, email: str, name: str) -> str:
+    """
+    Checks if the user's profile is complete. If not, sends a reminder email.
+    """
+    async def _check_and_send():
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).filter(User.id == user_id))
+            user = result.scalar_one_or_none()
+            
+            # If the user exists and their area is STILL null, send the reminder!
+            if user and not user.area:
+                print(f"📡 [RESEND SMTP CONNECTING] Sending Profile Reminder to: {email}")
+                message = MIMEMultipart("alternative")
+                message["Subject"] = "Action Required: Complete Your BookMyBook Profile 📍"
+                message["From"] = "LocalShelf Onboarding <onboarding@resend.dev>"
+                message["To"] = email
+
+                html_content = f"""
+                <html>
+                  <body style="font-family: 'Inter', sans-serif; background-color: #FAF9F6; color: #1a1a1a; padding: 30px;">
+                    <div style="max-width: 500px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E6DFD3;">
+                      <h2 style="color: #2C4A3E; margin-top: 0; font-size: 24px; text-align: center;">Hi {name},</h2>
+                      <p style="font-size: 15px; line-height: 1.6; color: #4A4A4A; text-align: center;">
+                        We noticed you haven't completed your profile yet. To start trading books, you must set your campus location and pincode so we can match you with local students!
+                      </p>
+                      <div style="text-align: center; margin: 25px 0;">
+                        <a href="http://localhost:5173/dashboard/profile" style="background-color: #EAB308; color: #1a1a1a; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Complete Profile Now</a>
+                      </div>
+                    </div>
+                  </body>
+                </html>
+                """
+                message.attach(MIMEText(html_content, "html"))
+
+                with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
+                    server.starttls()
+                    server.login(settings.smtp_user, settings.smtp_password)
+                    server.sendmail(message["From"], email, message.as_string())
+
+                print(f"✅ [RESEND SMTP SUCCESS] Reminder email delivered to {email}")
+                return "Reminder email sent."
+            
+            print(f"⏩ [CELERY SKIP] User {email} already completed profile. Skipping reminder.")
+            return "Profile already complete."
+
+    try:
+        # Run the async database check within the sync Celery worker context
+        return asyncio.run(_check_and_send())
+    except Exception as exc:
+        raise check_profile_and_remind_task.retry(exc=exc)

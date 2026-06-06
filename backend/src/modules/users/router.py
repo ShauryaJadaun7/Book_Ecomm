@@ -102,11 +102,24 @@ async def finalize_credential_signup(payload: VerifySignupOTPRequest, response: 
         auth_provider="email",
         password_hash=password_hash
     )
+    # Vo database pe save nahi ho raha tha isliye phir ye add kiya he
+    await db.commit()
 
     # Immediate absolute atomic cleanup of active staging keys
     redis_store.delete(f"otp:{payload.email}")
     redis_store.delete(f"reg_cache:{payload.email}:name")
     redis_store.delete(f"reg_cache:{payload.email}:pass_hash")
+
+    # MERGE NOTE: feat : Profile Remider
+    # Queue the background profile reminder (60-second delay for testing)
+    try:
+        from worker.tasks.auth_tasks import check_profile_and_remind_task
+        check_profile_and_remind_task.apply_async(
+            args=[str(user.id), user.email, user.name],
+            countdown=60
+        )
+    except Exception as e:
+        print(f"⚠️ [CELERY SUBMISSION FAILURE] Reminder task dropped: {str(e)}")
 
     # Construct secure 30-day lifecycle session management token architecture
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
@@ -200,6 +213,20 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
             auth_provider="google",
             oauth_id=google_unique_id
         )
+
+        # MERGE NOTE: feat : User Creation Confirmation email
+        await db.commit()
+        
+        # MERGE NOTE: feat : Profile Remider
+        # Queue the background profile reminder (60-second delay for testing)
+        try:
+            from worker.tasks.auth_tasks import check_profile_and_remind_task
+            check_profile_and_remind_task.apply_async(
+                args=[str(user.id), user.email, user.name],
+                countdown=60
+            )
+        except Exception as e:
+            print(f"⚠️ [CELERY SUBMISSION FAILURE] Reminder task dropped: {str(e)}")
         
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
     redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
@@ -264,6 +291,17 @@ async def save_profile_onboarding_data(
     
     if not updated_profile:
         raise HTTPException(status_code=404, detail="Active account workspace state could not be resolved.")
+
+    # MERGE NOTE: feat : Welcoming email
+    # Queue the background welcome email (60-second delay for testing)
+    try:
+        from worker.tasks.auth_tasks import send_welcome_email_task
+        send_welcome_email_task.apply_async(
+            args=[current_user.email, current_user.name],
+            countdown=60
+        )
+    except Exception as e:
+        print(f"⚠️ [CELERY SUBMISSION FAILURE] Welcome email task dropped: {str(e)}")
         
     return {
         "status": "success",
