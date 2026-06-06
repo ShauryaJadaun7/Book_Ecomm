@@ -18,7 +18,10 @@ def send_otp_email_task(email: str, otp: str) -> str:
         message["Subject"] = f"🔑 Your Verification Code: {otp}"
         
         # 🎯 BRAND ENHANCEMENT: Mask the sender using your verified Resend custom company domain email address
-        message["From"] = "BookMyBook Security <no-reply@yourcompanyname.com>"
+        # ye from me resend ka default email add kiya he , pehle jo tha vo placholder tha
+        # esko baad me setting se replace karange , abhi to isko MERGE karna
+        
+        message["From"] = "LocalShelf Onboarding <onboarding@resend.dev>"
         message["To"] = email
 
         # 2. Compile clean, minimalist HTML body (Updated timeline window text copy to 15 mins)

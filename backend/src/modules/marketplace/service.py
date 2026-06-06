@@ -76,7 +76,9 @@ async def parse_book_photo_with_vision_ai(image_file: UploadFile) -> dict:
 
         print("🧠 [AI VISION ACTIVE] Analyzing book cover with upgraded Gemini Client...")
         response = ai_client.models.generate_content(
-            model='gemini-1.5-flash',
+            # change the model to the stable version of gemini 2.5 flash 
+            # (isko 1.5 mat karna)
+            model='gemini-2.5-flash',
             contents=[image_part, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -316,6 +318,9 @@ async def get_book_details_by_id(db: AsyncSession, book_id: str) -> Optional[dic
             Book.image_url,
             Book.price,
             Book.owner_note,
+            # kuch owner id ka scene tha , kyuki isme uski key thi nahi , to router.py me error aa raha tha 
+            # to isko add kiya he
+            Book.owner_id,
             User.name.label("owner_name"),
             User.mobile_number.label("owner_mobile"),
             User.area.label("campus_name")
@@ -339,6 +344,8 @@ async def get_book_details_by_id(db: AsyncSession, book_id: str) -> Optional[dic
         "price": float(row.price),
         "owner_note": row.owner_note,
         "image_url": f"http://localhost:8000{row.image_url}" if row.image_url else None,
+        #idhar bhi same reson se add kiya he
+        "owner_id": str(row.owner_id),
         "owner_name": row.owner_name,
         "owner_mobile": row.owner_mobile,
         "campus_name": row.campus_name or "Campus Member"
@@ -348,3 +355,39 @@ async def get_book_details_by_id(db: AsyncSession, book_id: str) -> Optional[dic
     base_data["prefilled_text"] = await generate_whatsapp_lead_message(base_data)
 
     return base_data
+
+# MERGE NOTE:
+# Ek mybooks page ke liye function chaiye tha , to isko bhi merge karlena
+async def get_user_inventory(db: AsyncSession, current_user_id: uuid.UUID) -> list[dict]:
+    """
+    Inventory Query: Fetches all books belonging to a specific user.
+    """
+    selections = [
+        Book.id,
+        Book.title,
+        Book.author,
+        Book.description,
+        Book.genres,
+        Book.image_url,
+        Book.price,
+        Book.owner_note,
+        Book.created_at
+    ]
+    query = select(*selections).filter(Book.owner_id == current_user_id).order_by(Book.created_at.desc())
+    result = await db.execute(query)
+    rows = result.all()
+
+    catalog_books = []
+    for row in rows:
+        catalog_books.append({
+            "id": str(row.id),
+            "title": row.title,
+            "author": row.author,
+            "description": row.description,
+            "genres": row.genres,
+            "image_url": f"http://localhost:8000{row.image_url}" if row.image_url else None,
+            "price": float(row.price),
+            "owner_note": row.owner_note,
+            "created_at": row.created_at.isoformat() + "Z" if row.created_at else None
+        })
+    return catalog_books

@@ -37,6 +37,22 @@ async def get_and_search_books(
         limit=limit
     )
 
+# MERGE NOTE:
+# bhai ye ek new route chaiye tha my books ke liye isliye add kiya
+@router.get("/my-books")
+async def get_my_inventory(
+    user_id: str = Depends(verify_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves all books uploaded by the currently authenticated user.
+    """
+    current_user = await users_service.get_user_by_id(db, user_id)
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
+
+    return await service.get_user_inventory(db, current_user_id=current_user.id)
+
 
 @router.post("/scan")
 async def scan_and_parse_book_cover(
@@ -99,7 +115,6 @@ async def upload_new_book(
         print("INTERNAL CRASH:", error_details)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}\n{error_details}")
 
-# Add to src/modules/marketplace/router.py
 
 @router.post("/{book_id}/click-interest", status_code=200)
 async def log_and_generate_whatsapp_lead(
@@ -122,7 +137,12 @@ async def log_and_generate_whatsapp_lead(
 
     # 3. BACKEND DEV WORK: Async write this lead to an analytics or transaction table
     # This lets you measure traction: "Book X generated 14 potential buyer inquiries this week"
-    await service.increment_book_lead_counter(db, book_id=book_id, buyer_id=user_id)
+
+    # MERGE NOTE:
+    # bhai isko connect krna he baad me , to uske liye abhi to koi function nahi he 
+    # jo reflect kare database me bhi to isko comment hi rhne diya , to iska function bana le 
+    # and database me bhi agar kuch alter karna hoto
+    # await service.increment_book_lead_counter(db, book_id=book_id, buyer_id=user_id)
     
     # 4. Generate the auto-text messaging structure from the backend dynamically
     msg = f"Hi {book_data['owner_name']}! 👋 I am interested in your book '{book_data['title']}' listed on BookMyBook. Is it still available near {book_data['campus_name']}?"
@@ -133,3 +153,20 @@ async def log_and_generate_whatsapp_lead(
         "prefilled_text": msg  # Frontend just grabs this string and drops it into encodeURIComponent()
     }
 
+# MERGE NOTE:
+# Ek dynamic route chaiye tha kyuki button pr click krne k liye book_id chahiye tha
+
+@router.get("/{book_id}")
+async def get_book_detail(
+    book_id: str,
+    user_id: str = Depends(verify_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fetches the detailed information for a specific book listing.
+    """
+    book_data = await service.get_book_details_by_id(db, book_id)
+    if not book_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book listing not found.")
+    
+    return book_data
