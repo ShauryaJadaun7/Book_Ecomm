@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState , useEffect} from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, BookOpen, Camera, Heart, User, Search, Plus, Upload, X } from "lucide-react";
 
@@ -6,6 +6,89 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showSellModal, setShowSellModal] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [completionPercentage, setCompletionPercentage] = useState(100);
+
+  // Check profile completion on mount
+  useEffect(() => {
+    const checkProfileStatus = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          let completeCount = 0;
+          if (data.name) completeCount++;
+          if (data.email) completeCount++;
+          if (data.area) completeCount++;
+          if (data.pincode) completeCount++;
+          if (data.mobile_number) completeCount++;
+          
+          const percentage = (completeCount / 5) * 100;
+          setCompletionPercentage(percentage);
+          
+          // Show popup if not 100% and haven't seen it this session
+          if (percentage < 100 && !sessionStorage.getItem('onboarding_seen')) {
+            setShowOnboardingModal(true);
+            sessionStorage.setItem('onboarding_seen', 'true');
+          }
+        }
+      } catch (e) {
+        console.error("Failed to check profile status", e);
+      }
+    };
+    checkProfileStatus();
+  }, [location.pathname]); // Re-evaluate occasionally when navigating
+
+  const OnboardingModal = () => (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+      <div className="bg-white w-full max-w-md border-4 border-slate-900 shadow-[8px_8px_0px_rgba(24acc15,1)] rounded-sm p-8 relative flex flex-col items-center text-center">
+        <button 
+          onClick={() => setShowOnboardingModal(false)}
+          className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-sm transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        
+        <div className="bg-red-100 p-4 rounded-full mb-6 border-4 border-red-600 shadow-brutal">
+          <User className="w-10 h-10 text-red-600" />
+        </div>
+        
+        <h2 className="text-3xl font-black font-mono uppercase tracking-tight mb-2">Profile Incomplete</h2>
+        <p className="text-slate-600 font-mono font-bold mb-6">
+          You cannot list books until your campus location is configured.
+        </p>
+
+        <div className="w-full bg-slate-200 border-2 border-slate-900 h-6 mb-2 relative overflow-hidden">
+          <div 
+            className="h-full bg-yellow-400 border-r-2 border-slate-900 transition-all duration-1000 ease-out"
+            style={{ width: `${completionPercentage}%` }}
+          />
+          <span className="absolute inset-0 flex items-center justify-center font-mono font-black text-xs mix-blend-difference text-white">
+            {completionPercentage}% COMPLETE
+          </span>
+        </div>
+        <p className="text-xs font-mono font-bold text-slate-500 mb-8 uppercase">Setup takes less than 30 seconds</p>
+
+        <button 
+          onClick={() => {
+            setShowOnboardingModal(false);
+            navigate("/dashboard/profile");
+          }}
+          className="w-full bg-red-600 text-white py-4 border-4 border-slate-900 font-mono font-black uppercase tracking-widest text-lg shadow-[4px_4px_0px_rgba(15,23,42,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(15,23,42,1)] transition-all active:translate-y-1 active:shadow-none"
+        >
+          Finish Setup Now
+        </button>
+      </div>
+    </div>
+  );
+
+  const handleSellClick = () => {
+    if (completionPercentage < 100) {
+      setShowOnboardingModal(true);
+    } else {
+      setShowSellModal(true);
+    }
+  };
 
   const navItems = [
     { name: "Home", path: "/dashboard", icon: <Home className="w-6 h-6" /> },
@@ -97,7 +180,7 @@ export default function DashboardLayout() {
           <div className="w-px h-8 bg-slate-300 mx-2"></div>
           
           <button 
-            onClick={() => setShowSellModal(true)}
+            onClick={handleSellClick}
             className="flex items-center gap-2 bg-primary px-5 py-2.5 border-2 border-slate-900 shadow-brutal active-brutal rounded-sm font-mono font-black uppercase text-slate-900 hover:bg-yellow-400 transition-colors"
           >
             <Camera className="w-5 h-5" />
@@ -134,7 +217,7 @@ export default function DashboardLayout() {
           {/* Center Elevated Button */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-8">
             <button 
-              onClick={() => setShowSellModal(true)}
+              onClick={handleSellClick}
               className="bg-primary p-4 rounded-full border-4 border-slate-900 shadow-brutal active-brutal hover:bg-yellow-400 transition-all text-slate-900 flex items-center justify-center"
             >
               <Camera className="w-7 h-7" />
@@ -163,6 +246,9 @@ export default function DashboardLayout() {
 
       {/* Sell Menu Modal */}
       {showSellModal && <SellModal />}
+      
+      {/* Onboarding Modal */}
+      {showOnboardingModal && <OnboardingModal />}
     </div>
   );
 }

@@ -25,9 +25,7 @@ export default function AuthPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            token: tokenResponse.access_token,
-            area: mode === "signup" ? formData.area : undefined,
-            pincode: mode === "signup" ? formData.pincode : undefined
+            token: tokenResponse.access_token
           })
         });
         const data = await res.json();
@@ -47,8 +45,7 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    area: "",
-    pincode: ""
+    password: ""
   });
   const [otp, setOtp] = useState("");
 
@@ -56,31 +53,52 @@ export default function AuthPage() {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    // For login, we only need email strictly.
-    const payload = mode === "signup" ? formData : {
-      email: formData.email
-    };
 
-    try {
-      const res = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStep(2);
-        console.log("Dev Bypass Token:", data.dev_bypass_token);
-      } else {
-        setError(data.detail || "Failed to send OTP");
+    if (mode === "login") {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          navigate("/dashboard");
+        } else {
+          setError(data.detail || "Invalid login credentials.");
+        }
+      } catch (err) {
+        setError("An error occurred connecting to the server.");
       }
-    } catch (err) {
-      console.log(err);
-      setError("An error occurred connecting to the server.");
+    } else {
+      // Signup Mode -> Needs OTP Verification
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setStep(2);
+          console.log("Dev Bypass Token:", data.dev_bypass_token);
+        } else {
+          setError(data.detail || "Failed to initiate signup.");
+        }
+      } catch (err) {
+        setError("An error occurred connecting to the server.");
+      }
     }
     setLoading(false);
   };
@@ -90,7 +108,7 @@ export default function AuthPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      const res = await fetch("/api/auth/signup/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: formData.email, otp }),
@@ -102,7 +120,6 @@ export default function AuthPage() {
         setError(data.detail || "Invalid OTP");
       }
     } catch (err) {
-      console.log(err);
       setError("An error occurred during verification.");
     }
     setLoading(false);
@@ -178,7 +195,7 @@ export default function AuthPage() {
 
         <div className="space-y-6">
           {step === 1 ? (
-            <form onSubmit={handleSendOtp} className="space-y-5">
+            <form onSubmit={handleAuthAction} className="space-y-5">
               
               {mode === "signup" && (
                 <div className="space-y-2">
@@ -217,49 +234,31 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {mode === "signup" && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="area" className="font-mono text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                      Area (City)
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                      <input 
-                        id="area" 
-                        value={formData.area} 
-                        onChange={handleChange} 
-                        required 
-                        placeholder="Bharuch"
-                        className="w-full pl-9 pr-3 py-2 bg-slate-100 border-2 border-transparent focus:border-secondary focus:bg-white focus:outline-none font-mono text-sm transition-all rounded-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="pincode" className="font-mono text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                      Pincode
-                    </label>
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                      <input 
-                        id="pincode" 
-                        value={formData.pincode} 
-                        onChange={handleChange} 
-                        required 
-                        placeholder="392001"
-                        className="w-full pl-9 pr-3 py-2 bg-slate-100 border-2 border-transparent focus:border-secondary focus:bg-white focus:outline-none font-mono text-sm transition-all rounded-sm"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <label htmlFor="password" className="font-mono text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input 
+                    id="password" 
+                    type="password"
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    required 
+                    minLength={6}
+                    placeholder="••••••••"
+                    className="w-full pl-9 pr-4 py-2 bg-slate-100 border-2 border-transparent focus:border-secondary focus:bg-white focus:outline-none font-mono text-sm transition-all rounded-sm"
+                  />
                 </div>
-              )}
+              </div>
 
               <button 
                 type="submit" 
                 disabled={loading}
                 className="w-full mt-4 bg-secondary text-white font-mono font-bold uppercase tracking-widest py-3 border-2 border-secondary hover:bg-slate-800 transition-all flex items-center justify-center gap-2 rounded-sm shadow-brutal active-brutal"
               >
-                {loading ? "Processing..." : (mode === "login" ? "Login with Email" : "Create Account")}
+                {loading ? "Processing..." : (mode === "login" ? "Login" : "Sign Up")}
                 <ChevronRight className="w-5 h-5" />
               </button>
 

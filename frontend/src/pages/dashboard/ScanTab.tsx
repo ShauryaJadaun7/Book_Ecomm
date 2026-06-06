@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef , useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Camera, Upload, AlertTriangle, Loader2 } from "lucide-react";
 
@@ -14,6 +14,8 @@ export default function ScanTab() {
   const [isScanning, setIsScanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
+  const [checkingProfile, setCheckingProfile] = useState(true);
   
   // Form Data from AI and User
   const [formData, setFormData] = useState({
@@ -24,6 +26,22 @@ export default function ScanTab() {
     price: "",
     owner_note: "",
   });
+
+  useEffect(() => {
+    const checkProfile = async () => {
+      try {
+        const profileRes = await fetch("/api/auth/me", { credentials: "include" });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (!profileData.area || !profileData.pincode) {
+            setIsProfileComplete(false);
+          }
+        }
+      } catch(e) {}
+      setCheckingProfile(false);
+    }
+    checkProfile();
+  }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -62,7 +80,7 @@ export default function ScanTab() {
           genres: Array.isArray(ai.genres) ? ai.genres.join(", ") : (ai.genres || ""),
         }));
       }
-    } catch (error: any) {
+    } catch (error) {
       setScanError(error.message || "Something went wrong during AI analysis.");
     } finally {
       setIsScanning(false);
@@ -103,6 +121,15 @@ export default function ScanTab() {
     }
   };
 
+  if (checkingProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-900">
+        <Loader2 className="w-10 h-10 animate-spin mb-4" />
+        <p className="font-mono font-bold uppercase tracking-widest">Verifying access...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
@@ -117,7 +144,19 @@ export default function ScanTab() {
         </button>
       </div>
 
-      {!imagePreview ? (
+      {!isProfileComplete ? (
+        <div className="text-center py-20 border-4 border-slate-900 border-dashed bg-red-50 shadow-brutal rounded-sm flex flex-col items-center justify-center">
+          <AlertTriangle className="w-16 h-16 text-red-600 mb-4" />
+          <h2 className="font-mono font-black text-2xl uppercase text-slate-900 mb-2">Profile Incomplete</h2>
+          <p className="font-mono font-bold text-slate-600 mb-6 max-w-sm">You must complete your campus location setup before you can scan or upload books.</p>
+          <button 
+            onClick={() => navigate("/dashboard/profile")}
+            className="bg-slate-900 text-white px-6 py-3 font-mono font-bold uppercase tracking-widest shadow-[4px_4px_0px_#facc15] hover:-translate-y-1 hover:shadow-[6px_6px_0px_#facc15] transition-all"
+          >
+            Complete Setup
+          </button>
+        </div>
+      ) : !imagePreview ? (
         <div className="p-8 border-4 border-slate-900 shadow-brutal bg-white rounded-sm text-center">
           <input 
             type="file" 

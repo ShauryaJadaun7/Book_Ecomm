@@ -10,6 +10,7 @@ import MyBooksTab from "./pages/dashboard/MyBooksTab";
 import WishlistTab from "./pages/dashboard/WishlistTab";
 import ProfileTab from "./pages/dashboard/ProfileTab";
 import ScanTab from "./pages/dashboard/ScanTab";
+import BookDetailsTab from "./pages/dashboard/BookDetailsTab";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<HomeTab />} />
             <Route path="my-books" element={<MyBooksTab />} />
+            <Route path="books/:id" element={<BookDetailsTab />} />
             <Route path="wishlist" element={<WishlistTab />} />
             <Route path="profile" element={<ProfileTab />} />
             <Route path="scan" element={<ScanTab />} />

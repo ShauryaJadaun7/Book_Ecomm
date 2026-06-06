@@ -1,5 +1,18 @@
 import { useState, useEffect } from "react";
 import { Search, MapPin, Loader2, IndianRupee } from "lucide-react";
+import { Link } from "react-router-dom";
+
+const BookImage = ({ src, alt, className }: { src: string | null, alt: string, className?: string }) => {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-4 ${className || "w-full h-full"}`}>
+        <span className="font-mono text-xs text-center line-clamp-3">{alt}</span>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} onError={() => setError(true)} />;
+};
 
 type Book = {
   book_id: string;
@@ -92,21 +105,17 @@ export default function HomeTab() {
           <p className="font-mono font-bold text-xl uppercase text-slate-500">No books found in this radius.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {books.map((book) => (
-            <div key={book.book_id} className="group flex flex-col border-4 border-slate-900 bg-white shadow-brutal hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(15,23,42,1)] transition-all rounded-sm overflow-hidden">
+            <Link key={book.book_id} to={`/dashboard/books/${book.book_id}`} className="group flex flex-col border-4 border-slate-900 bg-white shadow-brutal hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(15,23,42,1)] transition-all rounded-sm overflow-hidden">
               {/* Image Header */}
-              <div className="relative h-56 border-b-4 border-slate-900 bg-white flex items-center justify-center overflow-hidden p-4">
-                {book.image_url ? (
-                  <img src={book.image_url} alt={book.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-md" />
-                ) : (
-                  <span className="font-mono text-slate-300">No Image</span>
-                )}
-                <div className="absolute top-2 left-2 bg-primary border-2 border-slate-900 px-2 py-1 font-mono font-black text-sm flex items-center shadow-[2px_2px_0px_rgba(15,23,42,1)]">
-                  <IndianRupee className="w-4 h-4 mr-1" />
+              <div className="relative h-40 sm:h-56 border-b-4 border-slate-900 bg-white flex items-center justify-center overflow-hidden p-2 sm:p-4">
+                <BookImage src={book.image_url} alt={book.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-md" />
+                <div className="absolute top-2 left-2 bg-primary border-2 border-slate-900 px-2 py-1 font-mono font-black text-xs flex items-center shadow-[2px_2px_0px_rgba(15,23,42,1)]">
+                  <IndianRupee className="w-3 h-3 mr-1" />
                   {book.price === 0 ? "FREE" : book.price}
                 </div>
-                <div className="absolute bottom-2 right-2 bg-white border-2 border-slate-900 px-2 py-1 font-mono font-bold text-xs shadow-[2px_2px_0px_rgba(15,23,42,1)] flex items-center gap-1">
+                <div className="absolute bottom-2 right-2 bg-white border-2 border-slate-900 px-2 py-1 font-mono font-bold text-[10px] sm:text-xs shadow-[2px_2px_0px_rgba(15,23,42,1)] flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-red-500" />
                   {book.distance_display}
                 </div>
@@ -138,12 +147,15 @@ export default function HomeTab() {
                     </div>
                     <span className="font-mono font-bold text-xs truncate max-w-[100px]">{book.owner_name}</span>
                   </div>
-                  <button className="bg-white border-2 border-slate-900 shadow-[2px_2px_0px_rgba(15,23,42,1)] hover:bg-slate-900 hover:text-white px-3 py-1 font-mono font-bold text-xs uppercase transition-colors rounded-sm">
-                    Contact
+                  <button 
+                    onClick={(e) => { e.preventDefault(); /* Allows navigating to details still */ }}
+                    className="bg-white border-2 border-slate-900 shadow-[2px_2px_0px_rgba(15,23,42,1)] hover:bg-slate-900 hover:text-white px-3 py-1 font-mono font-bold text-[10px] sm:text-xs uppercase transition-colors rounded-sm"
+                  >
+                    View
                   </button>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
