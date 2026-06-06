@@ -13,20 +13,28 @@ from src.core.database import get_db
 # Initialize centralized connection to high-speed Redis session memory
 redis_store = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-# Secure bcrypt adaptive hashing context configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+# ye ek package se password hash vala kiya he
+# pehla ka jo logic tha usme pata nahi native browser me length ka issue aa raha tha 
+import bcrypt
 
 def hash_password(password: str) -> str:
     """Transforms a plain text password into a secure cryptographic hash."""
-    return pwd_context.hash(password)
+
+    # MERGE NOTE:
+    # Native bcrypt requires bytes.
+    safe_password = password.encode('utf-8')[:72]
+    hashed_bytes = bcrypt.hashpw(safe_password, bcrypt.gensalt())
+    return hashed_bytes.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Compares raw input text against a stored hash to confirm identity matches."""
     if not hashed_password:
         return False
-    return pwd_context.verify(plain_password, hashed_password)
+
+    # MERGE NOTE: (2)
+    safe_password = plain_password.encode('utf-8')[:72]
+    return bcrypt.checkpw(safe_password, hashed_password.encode('utf-8'))
 
 
 async def verify_session(session_id: Optional[str] = Cookie(None)) -> str:
