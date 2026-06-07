@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, text  
+from sqlalchemy import Column, String, DateTime, Text, text, Boolean  
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from geoalchemy2 import Geometry
 from src.core.database import Base
@@ -25,5 +25,7 @@ class User(Base):
     # Metadata and Preferences
     bio = Column(Text, nullable=True)  
     favorite_genres = Column(ARRAY(String(100)), nullable=True)
+    
+    welcome_email_sent = Column(Boolean, default=False, nullable=False, server_default=text("false"))
     
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

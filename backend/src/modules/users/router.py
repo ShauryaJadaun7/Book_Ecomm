@@ -279,9 +279,19 @@ async def save_profile_onboarding_data(
     Profile Enrichment Point: Collects exact device GPS coordinates along with
     contact data to activate real-time marketplace proximity tracking capabilities.
     """
+    # Check email uniqueness if email is modified and not already in use
+    if payload.email and payload.email.strip().lower() != current_user.email.strip().lower():
+        existing_user = await service.get_user_by_email(db, payload.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this email address is already registered."
+            )
+
     updated_profile = await service.update_user(
         db=db,
         user_id=str(current_user.id),
+        email=payload.email.strip().lower() if payload.email else None,
         area=payload.area,
         pincode=payload.pincode,
         mobile_number=payload.mobile_number,
@@ -292,16 +302,27 @@ async def save_profile_onboarding_data(
     if not updated_profile:
         raise HTTPException(status_code=404, detail="Active account workspace state could not be resolved.")
 
-    # MERGE NOTE: feat : Welcoming email
-    # Queue the background welcome email (60-second delay for testing)
-    try:
-        from worker.tasks.auth_tasks import send_welcome_email_task
-        send_welcome_email_task.apply_async(
-            args=[current_user.email, current_user.name],
-            countdown=60
-        )
-    except Exception as e:
-        print(f"⚠️ [CELERY SUBMISSION FAILURE] Welcome email task dropped: {str(e)}")
+    # Check if profile is 100% complete (name, email, area, pincode, and mobile_number are all set and non-empty)
+    is_profile_complete = (
+        updated_profile.name and
+        updated_profile.email and
+        updated_profile.area and
+        updated_profile.pincode and
+        updated_profile.mobile_number
+    )
+
+    if is_profile_complete and not updated_profile.welcome_email_sent:
+        updated_profile.welcome_email_sent = True
+        await db.commit()
+        
+        try:
+            from worker.tasks.auth_tasks import send_welcome_email_task
+            send_welcome_email_task.apply_async(
+                args=[updated_profile.email, updated_profile.name],
+                countdown=60
+            )
+        except Exception as e:
+            print(f"⚠️ [CELERY SUBMISSION FAILURE] Welcome email task dropped: {str(e)}")
         
     return {
         "status": "success",

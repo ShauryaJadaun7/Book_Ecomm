@@ -57,4 +57,5 @@ class ProfileOnboardingRequest(BaseModel):
     mobile_number: str = Field(..., min_length=10, max_length=15, description="Active user WhatsApp handle")
     latitude: float = Field(..., ge=-90.0, le=90.0, description="Device sensor latitude position decimal")
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Device sensor longitude position decimal")
+    email: Optional[EmailStr] = Field(None, description="Optional profile email override")
     # In your Profile/User Onboarding Schema

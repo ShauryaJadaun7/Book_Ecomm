@@ -5,7 +5,9 @@ import asyncio
 import os
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+from dotenv import load_dotenv
 
+load_dotenv()
 db_url = os.getenv("DATABASE_URL")
 
 engine = create_async_engine(db_url)
