@@ -6,9 +6,11 @@ from celery.result import AsyncResult  # Inspects background states inside Redis
 from src.core.database import get_db
 from src.core.security import get_current_user, enforce_contact_rate_limiting
 from src.modules.users.models import User
-from .schemas import BountyCreateRequest
+from typing import List
+from .schemas import BountyCreateRequest, BountyResponse
 from .models import BookBounty
 from .tasks import search_and_match_bounty_task  # Import your task entry point handle
+from . import service
 
 router = APIRouter(prefix="/bounties", tags=["Asynchronous Campus Bounty Architecture"])
 
@@ -96,3 +98,34 @@ async def get_bounty_matching_task_status(
         }
 
     return {"task_id": task_id, "state": task_result.state}
+
+
+@router.get("/me", response_model=List[BountyResponse])
+async def get_my_active_bounties(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves all active bounty hunts created by the requesting user.
+    """
+    bounties = await service.get_user_bounties(db, str(current_user.id))
+    return bounties
+
+
+@router.delete("/{bounty_id}", status_code=status.HTTP_200_OK)
+async def cancel_active_bounty_hunt(
+    bounty_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cleaves a bounty hunt record from persistent databases when the user has either 
+    successfully traded for it or decided to terminate the search pipeline.
+    """
+    success = await service.delete_bounty(db, bounty_id, str(current_user.id))
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bounty hunt matching the identifier could not be resolved or belongs to another account."
+        )
+    return {"status": "success", "message": "Bounty hunt cancelled successfully."}

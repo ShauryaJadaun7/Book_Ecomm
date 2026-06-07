@@ -1,6 +1,6 @@
 import { useState , useEffect} from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, BookOpen, Camera, Heart, User, Search, Plus, Upload, X } from "lucide-react";
+import { Home, BookOpen, Camera, Heart, User, Search, Plus, Upload, X, Target } from "lucide-react";
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -93,7 +93,7 @@ export default function DashboardLayout() {
   const navItems = [
     { name: "Home", path: "/dashboard", icon: <Home className="w-6 h-6" /> },
     { name: "My Books", path: "/dashboard/my-books", icon: <BookOpen className="w-6 h-6" /> },
-    { name: "Wishlist", path: "/dashboard/wishlist", icon: <Heart className="w-6 h-6" /> },
+    { name: "Bounties", path: "/dashboard/bounties", icon: <Target className="w-6 h-6" /> },
     { name: "Profile", path: "/dashboard/profile", icon: <User className="w-6 h-6" /> },
   ];
 

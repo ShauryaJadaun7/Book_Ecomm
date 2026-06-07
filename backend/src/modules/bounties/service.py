@@ -1,24 +1,33 @@
-from pydantic import BaseModel, Field
-from typing import List
+import uuid
+from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from .models import BookBounty
 
-class BountyCreateRequest(BaseModel):
-    """Validates bounty placement payloads coming from the frontend client."""
-    title: str = Field(..., min_length=2, description="Title of the unavailable book being hunted")
-    genres: List[str] = Field(..., min_length=1, description="Array of target genres to locate candidate match peers")
+async def get_user_bounties(db: AsyncSession, user_id: str) -> List[BookBounty]:
+    """Retrieves all active book bounties created by the specified user, ordered by creation time."""
+    user_uuid = uuid.UUID(str(user_id))
+    result = await db.execute(
+        select(BookBounty)
+        .filter(BookBounty.seeker_id == user_uuid)
+        .order_by(BookBounty.created_at.desc())
+    )
+    return list(result.scalars().all())
 
-
-class MatchedOwnerResponse(BaseModel):
-    """Represents a validated candidate match peer without location parameters."""
-    owner_name: str
-    owner_mobile: str
-    matched_via: str  # Tracks 'Exact Title Match' or 'Genre Expertise Match'
-    prefilled_text: str
-
-
-class BountyCreationResponse(BaseModel):
-    """The unified data structure returned following a successful bounty registration block."""
-    status: str
-    bounty_id: str
-    message: str
-    matches_found: int
-    candidates: List[MatchedOwnerResponse]
+async def delete_bounty(db: AsyncSession, bounty_id: str, user_id: str) -> bool:
+    """Deletes a specific book bounty after verifying that it belongs to the requesting user."""
+    bounty_uuid = uuid.UUID(str(bounty_id))
+    user_uuid = uuid.UUID(str(user_id))
+    
+    result = await db.execute(
+        select(BookBounty)
+        .filter(BookBounty.id == bounty_uuid, BookBounty.seeker_id == user_uuid)
+    )
+    bounty = result.scalar_one_or_none()
+    
+    if not bounty:
+        return False
+        
+    await db.delete(bounty)
+    await db.commit()
+    return True

@@ -7,7 +7,7 @@ import DashboardLayout from "./components/DashboardLayout";
 // Dashboard Tabs
 import HomeTab from "./pages/dashboard/HomeTab";
 import MyBooksTab from "./pages/dashboard/MyBooksTab";
-import WishlistTab from "./pages/dashboard/WishlistTab";
+import BountiesTab from "./pages/dashboard/BountiesTab";
 import ProfileTab from "./pages/dashboard/ProfileTab";
 import ScanTab from "./pages/dashboard/ScanTab";
 import BookDetailsTab from "./pages/dashboard/BookDetailsTab";
@@ -26,7 +26,7 @@ function App() {
             <Route index element={<HomeTab />} />
             <Route path="my-books" element={<MyBooksTab />} />
             <Route path="books/:id" element={<BookDetailsTab />} />
-            <Route path="wishlist" element={<WishlistTab />} />
+            <Route path="bounties" element={<BountiesTab />} />
             <Route path="profile" element={<ProfileTab />} />
             <Route path="scan" element={<ScanTab />} />
           </Route>
