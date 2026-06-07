@@ -106,6 +106,7 @@ export default function ProfileTab() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          email: formData.email,
           area: formData.area,
           pincode: formData.pincode,
           mobile_number: formData.mobile_number,
@@ -208,8 +209,14 @@ export default function ProfileTab() {
               <input type="text" disabled value={formData.name} className="w-full border-2 border-slate-200 bg-slate-50 p-3 font-mono text-slate-500 cursor-not-allowed" />
             </div>
             <div>
-              <label className="block font-mono font-bold text-sm mb-2 uppercase">Verified Email</label>
-              <input type="text" disabled value={formData.email} className="w-full border-2 border-slate-200 bg-slate-50 p-3 font-mono text-slate-500 cursor-not-allowed" />
+              <label className="block font-mono font-bold text-sm mb-2 uppercase">Verified Email *</label>
+              <input 
+                type="email" 
+                value={formData.email} 
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                placeholder="e.g. yourname@example.com"
+                className="w-full border-2 border-slate-900 p-3 font-mono focus:outline-none focus:ring-4 focus:ring-primary focus:border-slate-900 transition-all shadow-[4px_4px_0px_rgba(15,23,42,1)]" 
+              />
             </div>
           </div>
         </div>
