@@ -8,7 +8,8 @@ celery_worker = Celery(
     # 🚨 CRITICAL FIX: Tell the worker exactly where to look for your tasks on startup
     include=[
         "worker.tasks.auth_tasks",       # For your real-time OTP delivery emails
-        "src.modules.wishlist.tasks"     # For your hyper-local campus wishlist matchers
+        "src.modules.wishlist.tasks",     # For your hyper-local campus wishlist matchers
+        "src.modules.bounties.tasks"     # For your campus bounty matching engine
     ]
 )
 

@@ -1,5 +1,5 @@
 import uuid
-from celery import shared_task
+from worker.celery_app import celery_worker
 from sqlalchemy import create_engine, func, or_
 from sqlalchemy.orm import sessionmaker
 
@@ -14,7 +14,7 @@ sync_engine = create_engine(SYNC_DB_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=sync_engine)
 
 
-@shared_task(name="src.modules.bounties.tasks.search_and_match_bounty_task")
+@celery_worker.task(name="src.modules.bounties.tasks.search_and_match_bounty_task")
 def search_and_match_bounty_task(bounty_id: str, seeker_id: str, title: str, genres: list) -> dict:
     """
     Location-Agnostic Bounty Task Engine: Scans the entire global catalog for matching 

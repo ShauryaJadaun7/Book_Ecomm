@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+import uuid
 
 class BountyCreateRequest(BaseModel):
     """Validates bounty placement payloads coming from the frontend client."""
@@ -27,7 +28,7 @@ class BountyCreationResponse(BaseModel):
 
 class BountyResponse(BaseModel):
     """Represents a bounty retrieved from database listing."""
-    id: str
+    id: uuid.UUID
     title: str
     genres: List[str]
     created_at: Optional[datetime] = None

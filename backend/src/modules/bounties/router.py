@@ -40,12 +40,21 @@ async def create_campus_book_bounty_async(
     await db.refresh(new_bounty)
 
     # 2. Fire-and-Forget: Handover query computation tasks to your active Celery broker stack
-    task = search_and_match_bounty_task.delay(
-        bounty_id=str(new_bounty.id),
-        seeker_id=str(current_user.id),
-        title=new_bounty.title,
-        genres=new_bounty.genres
-    )
+    try:
+        task = search_and_match_bounty_task.delay(
+            bounty_id=str(new_bounty.id),
+            seeker_id=str(current_user.id),
+            title=new_bounty.title,
+            genres=new_bounty.genres
+        )
+    except Exception as e:
+        # If queue submission fails, clean up the staged database record to prevent orphan records
+        await db.delete(new_bounty)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Background task broker (Redis) is offline. Please ensure Redis is running."
+        )
 
     # 3. Drop back a rapid transactional ticket signature. The client loop remains perfectly fluid.
     return {
