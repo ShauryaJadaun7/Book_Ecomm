@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Book, Lock, ChevronRight, User, Mail, MapPin, Hash } from "lucide-react";
+import { Book, Lock, ChevronRight, User, Mail } from "lucide-react";
 import { useGoogleLogin } from '@react-oauth/google';
 
 type AuthMode = "login" | "signup";

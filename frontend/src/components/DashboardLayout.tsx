@@ -1,6 +1,6 @@
 import { useState , useEffect} from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, BookOpen, Camera, Heart, User, Search, Plus, Upload, X, Target } from "lucide-react";
+import { Home, BookOpen, Camera, User, Upload, X, Target } from "lucide-react";
 
 export default function DashboardLayout() {
   const location = useLocation();

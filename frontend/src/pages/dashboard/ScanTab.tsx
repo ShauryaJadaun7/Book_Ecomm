@@ -80,7 +80,7 @@ export default function ScanTab() {
           genres: Array.isArray(ai.genres) ? ai.genres.join(", ") : (ai.genres || ""),
         }));
       }
-    } catch (error) {
+    } catch (error: any) {
       setScanError(error.message || "Something went wrong during AI analysis.");
     } finally {
       setIsScanning(false);
@@ -114,7 +114,7 @@ export default function ScanTab() {
 
       // Success, redirect to inventory or home
       navigate("/dashboard/my-books");
-    } catch (error) {
+    } catch (error: any) {
       alert("Error: " + error.message);
     } finally {
       setIsUploading(false);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
-  Book, Camera, Map, MessageSquare, ChevronRight, Search, Clock, Zap, 
+  Book, ChevronRight, Search, Clock, Zap, 
   ArrowRightLeft, IndianRupee, ShieldCheck, Leaf, Trophy, Star, Download,
   Mail, MessageCircle, ChevronDown, Menu, X
 } from "lucide-react";
