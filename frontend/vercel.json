@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://book-ecomm-2pvx.onrender.com/:path*"
+    }
+  ]
+}
