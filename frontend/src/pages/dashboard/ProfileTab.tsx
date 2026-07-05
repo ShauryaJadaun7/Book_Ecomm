@@ -74,7 +74,7 @@ export default function ProfileTab() {
         setLoading(false);
         setError("");
       },
-      (err) => {
+      () => {
         setLoading(false);
         setError("Failed to access GPS. Please ensure location permissions are enabled.");
       },
