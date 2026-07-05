@@ -125,13 +125,14 @@ async def finalize_credential_signup(payload: VerifySignupOTPRequest, response: 
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
     redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
     
+    is_prod = settings.ENVIRONMENT.lower() == "production"
     response.set_cookie(
         key="session_id",
         value=assigned_session_uuid,
         httponly=True,
         max_age=2592000,
-        samesite="lax",
-        secure=False  # Flip to True when setting up live target SSL/HTTPS production networks
+        samesite="none" if is_prod else "lax",
+        secure=is_prod
     )
     return {"status": "authorized", "user_id": str(user.id), "message": "Account created successfully."}
 
@@ -166,13 +167,14 @@ async def standard_credential_login(payload: UserLoginRequest, response: Respons
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
     redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
     
+    is_prod = settings.ENVIRONMENT.lower() == "production"
     response.set_cookie(
         key="session_id",
         value=assigned_session_uuid,
         httponly=True,
         max_age=2592000,
-        samesite="lax",
-        secure=False
+        samesite="none" if is_prod else "lax",
+        secure=is_prod
     )
     return {"status": "authorized", "user_id": str(user.id), "message": "Login successful."}
 
@@ -231,13 +233,14 @@ async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db
     assigned_session_uuid = f"sess_{uuid.uuid4().hex}"
     redis_store.setex(assigned_session_uuid, 2592000, str(user.id))
     
+    is_prod = settings.ENVIRONMENT.lower() == "production"
     response.set_cookie(
         key="session_id",
         value=assigned_session_uuid,
         httponly=True,
         max_age=2592000,
-        samesite="lax",
-        secure=False
+        samesite="none" if is_prod else "lax",
+        secure=is_prod
     )
     return {"status": "authorized", "user_id": str(user.id)}
 

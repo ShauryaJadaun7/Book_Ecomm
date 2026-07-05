@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "BookMyBook Backend Engine"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
 
     # Persistent Storage Matrix
     DATABASE_URL: str
