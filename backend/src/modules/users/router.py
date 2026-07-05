@@ -179,7 +179,7 @@ async def standard_credential_login(payload: UserLoginRequest, response: Respons
     return {"status": "authorized", "user_id": str(user.id), "message": "Login successful."}
 
 
-@router.post("/google")
+@router.post("/goauth")
 async def google_oauth_verify(payload: GoogleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)):
     """
     Alternative Google OAuth Hub: Performs direct, secure identity handshake assertions with 

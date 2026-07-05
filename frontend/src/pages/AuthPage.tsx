@@ -21,7 +21,7 @@ export default function AuthPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch("/api/auth/google", {
+        const res = await fetch("/api/auth/goauth", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
