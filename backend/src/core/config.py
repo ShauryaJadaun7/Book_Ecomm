@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     """
@@ -29,6 +30,13 @@ class Settings(BaseSettings):
 
     # Artificial Intelligence Orchestration
     GEMINI_API_KEY: str
+    
+    @field_validator("DATABASE_URL", "REDIS_URL", mode="before")
+    @classmethod
+    def clean_whitespaces(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.strip()
+        return v
     
     # Centralized WhatsApp Messaging Copy Template
     MARKETPLACE_MESSAGE_TEMPLATE: str = (
