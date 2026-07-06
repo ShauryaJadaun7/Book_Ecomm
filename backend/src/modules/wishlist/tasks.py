@@ -83,7 +83,7 @@ def send_single_notification_task(user_id: str, email: str, book_title: str, boo
         message["Subject"] = f"📚 Wishlist Alert: '{book_title}' is now available near you!"
         
         # 🎯 BRAND ENHANCEMENT: Swap this with your verified Resend custom domain email address
-        message["From"] = "BookMyBook Alerts <alerts@yourcompanyname.com>"
+        message["From"] = "LocalShelf Alerts <alerts@yourcompanyname.com>"
         message["To"] = email
 
         html_content = f"""
@@ -99,7 +99,7 @@ def send_single_notification_task(user_id: str, email: str, book_title: str, boo
                 <strong style="font-size: 20px; color: #2C4A3E; display: block;">{book_title}</strong>
               </div>
               <p style="font-size: 14px; line-height: 1.6; color: #4A4A4A;">
-                Open the <strong>BookMyBook</strong> catalog right now to view full descriptions, verify the peer's hyper-local campus coordinates, and drop them a WhatsApp message to lock down your exchange before someone else grabs it!
+                Open the <strong>LocalShelf</strong> catalog right now to view full descriptions, verify the peer's hyper-local campus coordinates, and drop them a WhatsApp message to lock down your exchange before someone else grabs it!
               </p>
               <hr style="border: none; border-top: 1px solid #E6DFD3; margin: 25px 0;" />
               <small style="color: #8A8A8A; font-size: 12px;">This is an automated real-time campus notification alert dispatched asynchronously by your core backend system cluster.</small>

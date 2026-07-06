@@ -145,7 +145,7 @@ async def log_and_generate_whatsapp_lead(
     # await service.increment_book_lead_counter(db, book_id=book_id, buyer_id=user_id)
     
     # 4. Generate the auto-text messaging structure from the backend dynamically
-    msg = f"Hi {book_data['owner_name']}! 👋 I am interested in your book '{book_data['title']}' listed on BookMyBook. Is it still available near {book_data['campus_name']}?"
+    msg = f"Hi {book_data['owner_name']}! 👋 I am interested in your book '{book_data['title']}' listed on LocalShelf. Is it still available near {book_data['campus_name']}?"
     
     return {
         "status": "success",

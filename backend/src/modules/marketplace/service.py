@@ -70,7 +70,7 @@ async def generate_whatsapp_lead_message(book_data: dict) -> str:
     except Exception as e:
         # Graceful fallback copy standard template string if format key mismatches occur
         print(f"⚠️ Template rendering warning: {str(e)}")
-        return f"Hello! I am interested in your book '{book_data['title']}' listed on BookMyBook. Is it still available?"
+        return f"Hello! I am interested in your book '{book_data['title']}' listed on LocalShelf. Is it still available?"
 
 
 async def parse_book_photo_with_vision_ai(image_file: UploadFile) -> dict:

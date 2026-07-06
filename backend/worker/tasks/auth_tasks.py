@@ -37,7 +37,7 @@ def send_otp_email_task(email: str, otp: str) -> str:
             <div style="max-width: 500px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E6DFD3;">
               <h2 style="color: #2C4A3E; margin-top: 0; font-size: 24px; text-align: center;">Verify Your Account</h2>
               <p style="font-size: 15px; line-height: 1.6; color: #4A4A4A; text-align: center;">
-                Use the following secure one-time passcode to complete your authentication process on BookMyBook. This code expires in 15 minutes.
+                Use the following secure one-time passcode to complete your authentication process on LocalShelf. This code expires in 15 minutes.
               </p>
               <div style="background-color: #E8ECE9; padding: 15px 0; border-radius: 12px; text-align: center; margin: 25px 0; letter-spacing: 6px;">
                 <span style="font-size: 32px; font-weight: bold; color: #2C4A3E; font-family: 'Courier New', monospace;">{otp}</span>
@@ -80,7 +80,7 @@ def send_welcome_email_task(email: str, name: str) -> str:
     try:
         print(f"📡 [RESEND SMTP CONNECTING] Sending Welcome Email to: {email}")
         message = MIMEMultipart("alternative")
-        message["Subject"] = "Welcome to the BookMyBook Community! 📚"
+        message["Subject"] = "Welcome to the LocalShelf Community! 📚"
         message["From"] = "LocalShelf Onboarding <onboarding@resend.dev>"
         message["To"] = email
 
@@ -127,7 +127,7 @@ def check_profile_and_remind_task(user_id: str, email: str, name: str) -> str:
             if user and not user.area:
                 print(f"📡 [RESEND SMTP CONNECTING] Sending Profile Reminder to: {email}")
                 message = MIMEMultipart("alternative")
-                message["Subject"] = "Action Required: Complete Your BookMyBook Profile 📍"
+                message["Subject"] = "Action Required: Complete Your LocalShelf Profile 📍"
                 message["From"] = "LocalShelf Onboarding <onboarding@resend.dev>"
                 message["To"] = email
 

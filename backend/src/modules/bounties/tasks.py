@@ -60,7 +60,7 @@ def search_and_match_bounty_task(bounty_id: str, seeker_id: str, title: str, gen
             # 📝 Updated message copy template (No location or campus mentions anymore)
             prefilled_msg = (
                 f"Hi {row.owner_name}! 👋 I placed a campus bounty hunt for the book '{title.strip()}' "
-                f"on BookMyBook. I saw that you have a matching copy or similar listings. "
+                f"on LocalShelf. I saw that you have a matching copy or similar listings. "
                 f"Is it available for barter or purchase?"
             )
 

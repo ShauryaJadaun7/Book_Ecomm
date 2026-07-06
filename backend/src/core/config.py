@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     attribute access patterns across legacy and modern submodules concurrently.
     """
     # Core Application Configuration
-    APP_NAME: str = "BookMyBook Backend Engine"
+    APP_NAME: str = "LocalShelf Backend Engine"
+
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     ALLOWED_ORIGINS: str = "http://localhost:5173"
@@ -50,8 +51,9 @@ class Settings(BaseSettings):
     # Centralized WhatsApp Messaging Copy Template
     MARKETPLACE_MESSAGE_TEMPLATE: str = (
         "Hello {owner_name}! I saw your asset listing for '{title}' priced at "
-        "₹{price} on BookMyBook. Let's arrange an exchange window!"
+        "₹{price} on LocalShelf. Let's arrange an exchange window!"
     )
+
 
     # ====================================================================
     # 🛡️ CASE-AGNOSTIC ATTRIBUTE PROXIES (Bridges Mixed Casing Files)
