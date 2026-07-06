@@ -27,3 +27,4 @@ google-genai>=2.8.0
 
 # --- Payment Gateways ---
 razorpay>=2.0.1
+cloudinary>=1.30.0

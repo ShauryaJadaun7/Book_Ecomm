@@ -1,6 +1,8 @@
 import os
 import json
 import uuid
+import asyncio
+import re
 from typing import List, Optional
 from google import genai  # 🌟 Upgraded to modern SDK framework
 from google.genai import types
@@ -11,6 +13,9 @@ from sqlalchemy.future import select
 from sqlalchemy import func, or_
 from geoalchemy2.functions import ST_Distance
 
+import cloudinary
+import cloudinary.uploader
+
 from src.core.config import settings  # Centralized Pydantic settings layer
 from src.modules.users.router import redis_store
 from src.modules.users.models import User
@@ -18,6 +23,23 @@ from .models import Book
 
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Configure Cloudinary if credentials are provided and valid
+if settings.cloudinary_cloud_name and settings.cloudinary_api_key and settings.cloudinary_api_secret:
+    if "your_" not in settings.cloudinary_cloud_name:
+        cloudinary.config(
+            cloud_name=settings.cloudinary_cloud_name,
+            api_key=settings.cloudinary_api_key,
+            api_secret=settings.cloudinary_api_secret,
+            secure=True
+        )
+
+def sanitize_filename_part(text: str) -> str:
+    """Sanitize string to be safe for filenames and Cloudinary public IDs."""
+    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', text)
+    sanitized = re.sub(r'_+', '_', sanitized)
+    return sanitized.strip('_').lower()
+
 
 # 🧠 Securely initialize the modern GenAI Client using Pydantic settings context
 try:
@@ -114,27 +136,68 @@ async def create_new_book_listing(
     image: UploadFile
 ) -> dict:
     """
-    Handles file saving, transforms text parameters into standard types,
+    Handles file saving (via Cloudinary or local fallback), transforms text parameters,
     commits to Postgres, and flushes historical cache frames from Redis.
     """
+    # Fetch user for username to build filename
+    user_query = await db.execute(select(User).filter(User.id == uuid.UUID(user_id)))
+    user_obj = user_query.scalar_one_or_none()
+    username = user_obj.name if user_obj else "user"
+
+    # Check file format beforehand for safety
     file_extension = os.path.splitext(image.filename)[1].lower()
     if file_extension not in [".jpg", ".jpeg", ".png", ".webp"]:
         raise HTTPException(status_code=400, detail="Unsupported media extension. Submit JPG, PNG, or WEBP.")
 
-    unique_filename = f"{uuid.uuid4().hex}{file_extension}"
-    file_save_path = os.path.join(UPLOAD_DIR, unique_filename)
+    # Determine if Cloudinary is configured (not placeholders)
+    is_cloudinary_configured = (
+        settings.cloudinary_cloud_name
+        and settings.cloudinary_api_key
+        and settings.cloudinary_api_secret
+        and "your_" not in settings.cloudinary_cloud_name
+    )
 
-    try:
-        contents = await image.read()
-        with open(file_save_path, "wb") as storage_file:
-            storage_file.write(contents)
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=f"File disk save execution failure: {str(error)}")
-    finally:
-        await image.close()
+    if is_cloudinary_configured:
+        try:
+            contents = await image.read()
+            clean_username = sanitize_filename_part(username) or "user"
+            clean_title = sanitize_filename_part(title) or "book"
+            # Naming convention: username_book{name}_book(username's)
+            public_id = f"{clean_username}_book_{clean_title}_book_{clean_username}s"
+            
+            # Execute synchronous upload in background threadpool to avoid event loop blocking
+            upload_result = await asyncio.to_thread(
+                cloudinary.uploader.upload,
+                contents,
+                public_id=public_id,
+                folder="book_covers",
+                overwrite=True,
+                invalidate=True
+            )
+            web_accessible_url = upload_result.get("secure_url")
+        except Exception as error:
+            print(f"❌ [CLOUDINARY ERROR] Upload failed: {str(error)}")
+            raise HTTPException(status_code=500, detail=f"Cloudinary upload execution failure: {str(error)}")
+        finally:
+            await image.close()
+    else:
+        # Fallback to local storage on disk
+        print("⚠️ [CLOUDINARY WARNING] Cloudinary credentials missing or default. Falling back to local storage.")
+        unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+        file_save_path = os.path.join(UPLOAD_DIR, unique_filename)
+
+        try:
+            contents = await image.read()
+            with open(file_save_path, "wb") as storage_file:
+                storage_file.write(contents)
+            web_accessible_url = f"/static/uploads/{unique_filename}"
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=f"File disk save execution failure: {str(error)}")
+        finally:
+            await image.close()
 
     genre_list = [g.strip() for g in genres.split(",")] if genres else []
-    web_accessible_url = f"/static/uploads/{unique_filename}"
+
     
     new_book = Book(
         title=title.strip(),
@@ -269,6 +332,15 @@ async def get_distance_sorted_catalog(
         else:
             distance_display = "Location Hidden"  # User placeholder string when GPS onboarding is pending
 
+        # Resolve URL correctly depending on if it is a Cloudinary URL or local path
+        if row.image_url:
+            if row.image_url.startswith("http://") or row.image_url.startswith("https://"):
+                img_url = row.image_url
+            else:
+                img_url = f"http://localhost:8000{row.image_url}"
+        else:
+            img_url = None
+
         catalog_books.append({
             "book_id": str(row.id),
             "title": row.title,
@@ -277,7 +349,7 @@ async def get_distance_sorted_catalog(
             "genres": row.genres or [],
             "price": row.price,
             "owner_note": row.owner_note,
-            "image_url": f"http://localhost:8000{row.image_url}" if row.image_url else None,
+            "image_url": img_url,
             "owner_name": row.owner_name,
             "campus_name": row.campus_name or "Campus Member",
             "distance_display": distance_display
@@ -334,6 +406,15 @@ async def get_book_details_by_id(db: AsyncSession, book_id: str) -> Optional[dic
     if not row:
         return None
 
+    # Resolve URL correctly depending on if it is a Cloudinary URL or local path
+    if row.image_url:
+        if row.image_url.startswith("http://") or row.image_url.startswith("https://"):
+            img_url = row.image_url
+        else:
+            img_url = f"http://localhost:8000{row.image_url}"
+    else:
+        img_url = None
+
     # Base payload structure mapping
     base_data = {
         "book_id": str(row.id),
@@ -343,7 +424,7 @@ async def get_book_details_by_id(db: AsyncSession, book_id: str) -> Optional[dic
         "genres": row.genres or [],
         "price": float(row.price),
         "owner_note": row.owner_note,
-        "image_url": f"http://localhost:8000{row.image_url}" if row.image_url else None,
+        "image_url": img_url,
         #idhar bhi same reson se add kiya he
         "owner_id": str(row.owner_id),
         "owner_name": row.owner_name,
@@ -379,13 +460,22 @@ async def get_user_inventory(db: AsyncSession, current_user_id: uuid.UUID) -> li
 
     catalog_books = []
     for row in rows:
+        # Resolve URL correctly depending on if it is a Cloudinary URL or local path
+        if row.image_url:
+            if row.image_url.startswith("http://") or row.image_url.startswith("https://"):
+                img_url = row.image_url
+            else:
+                img_url = f"http://localhost:8000{row.image_url}"
+        else:
+            img_url = None
+
         catalog_books.append({
             "id": str(row.id),
             "title": row.title,
             "author": row.author,
             "description": row.description,
             "genres": row.genres,
-            "image_url": f"http://localhost:8000{row.image_url}" if row.image_url else None,
+            "image_url": img_url,
             "price": float(row.price),
             "owner_note": row.owner_note,
             "created_at": row.created_at.isoformat() + "Z" if row.created_at else None

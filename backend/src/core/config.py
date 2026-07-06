@@ -1,5 +1,7 @@
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
+
 
 class Settings(BaseSettings):
     """
@@ -31,6 +33,12 @@ class Settings(BaseSettings):
 
     # Artificial Intelligence Orchestration
     GEMINI_API_KEY: str
+
+    # Cloudinary Configuration settings
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
+
     
     @field_validator("DATABASE_URL", "REDIS_URL", mode="before")
     @classmethod
@@ -73,6 +81,16 @@ class Settings(BaseSettings):
     
     @property
     def marketplace_message_template(self) -> str: return self.MARKETPLACE_MESSAGE_TEMPLATE
+
+    @property
+    def cloudinary_cloud_name(self) -> Optional[str]: return self.CLOUDINARY_CLOUD_NAME
+
+    @property
+    def cloudinary_api_key(self) -> Optional[str]: return self.CLOUDINARY_API_KEY
+
+    @property
+    def cloudinary_api_secret(self) -> Optional[str]: return self.CLOUDINARY_API_SECRET
+
 
     # Pydantic V2 Configuration Environment Settings
     model_config = SettingsConfigDict(
